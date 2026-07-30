@@ -13,82 +13,79 @@
 <div class="app-container" id="app">
     <h1><i class="fas fa-video"></i> Axis Camera Configuration</h1>
 
-    <!-- FORM START -->
-    <form id="configForm" method="post" enctype="multipart/form-data">
-
-        <!-- Credentials -->
-        <div class="section">
-            <div class="section-title">
-                <i class="fas fa-key"></i> Credentials
-            </div>
-
-            <div class="row">
-                <span class="row-label row-label-sm">Username</span>
-                <input type="text" id="usernameInput" name="username" value="root" />
-
-                <span class="row-label row-label-sm">Password</span>
-                <input type="password" id="passwordInput" name="password" value="pass" />
-            </div>
-
-            <div class="hint">
-                <i class="fas fa-info-circle"></i>
-                These credentials will be automatically set on all cameras
-            </div>
+    <!-- Credentials -->
+    <div class="section">
+        <div class="section-title">
+            <i class="fas fa-key"></i> Credentials to Set on Cameras
         </div>
 
-        <!-- Excel Upload -->
-        <div class="section">
-            <div class="section-title">
-                <i class="fas fa-file-excel"></i> Excel File
-            </div>
+        <div class="row">
+            <span class="row-label row-label-sm">Username</span>
+            <input type="text" id="usernameInput" value="root" />
 
-            <div class="row">
-                <span class="row-label">Excel File</span>
-
-                <div class="file-browse-group">
-                    <input type="text" id="excelFileInput" placeholder="path/to/file.xlsx" readonly />
-
-                    <button type="button" class="btn btn-outline btn-sm" id="browseBtn">
-                        <i class="fas fa-folder-open"></i> Browse
-                    </button>
-
-                    <input type="file" id="fileInput" name="excelFile" accept=".xlsx,.xls" style="display:none;" />
-                </div>
-            </div>
+            <span class="row-label row-label-sm">Password</span>
+            <input type="password" id="passwordInput" value="pass" />
         </div>
 
-        <!-- Actions -->
-        <div class="section" style="padding-bottom: 14px;">
-            <div class="action-bar">
-                <button type="submit" class="btn btn-success" id="startBtn">
-                    <i class="fas fa-play"></i> Start Configuration
-                </button>
+        <div class="hint">
+            <i class="fas fa-info-circle"></i>
+            These credentials will be automatically set on all cameras
+        </div>
+    </div>
 
-                <button type="button" class="btn btn-danger" id="stopBtn" disabled>
-                    <i class="fas fa-stop"></i> Stop
-                </button>
-
-                <button type="button" class="btn btn-outline" id="clearLogBtn">
-                    <i class="fas fa-eraser"></i> Clear Log
-                </button>
-
-                <span class="status-badge" id="statusBadge">
-                    <i class="fas fa-circle" style="color: #4a9e6b;"></i> Ready
-                </span>
-
-                <span class="progress-percent" id="progressText">0%</span>
-            </div>
-
-            <div class="progress-wrap">
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width:0%;"></div>
-                </div>
-                <span class="progress-label" id="progressLabel">0%</span>
-            </div>
+    <!-- Excel Upload -->
+    <div class="section">
+        <div class="section-title">
+            <i class="fas fa-file-excel"></i> Excel File
         </div>
 
-    </form>
-    <!-- FORM END -->
+        <div class="row">
+            <span class="row-label">Excel File</span>
+
+            <div class="file-browse-group">
+                <!-- Display path -->
+                <input type="text" id="excelFilePath" placeholder="No file selected" readonly />
+
+                <!-- Browse button -->
+                <button type="button" class="btn btn-outline btn-sm" id="browseBtn">
+                    <i class="fas fa-folder-open"></i> Browse
+                </button>
+
+                <!-- REAL file input (used by JS) -->
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none;" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="section" style="padding-bottom: 14px;">
+        <div class="action-bar">
+            <button type="button" class="btn btn-success" id="startBtn">
+                <i class="fas fa-play"></i> Start Configuration
+            </button>
+
+            <button type="button" class="btn btn-danger" id="stopBtn" disabled>
+                <i class="fas fa-stop"></i> Stop
+            </button>
+
+            <button type="button" class="btn btn-outline" id="clearLogBtn">
+                <i class="fas fa-eraser"></i> Clear Log
+            </button>
+
+            <span class="status-badge" id="statusBadge">
+                <i class="fas fa-circle" style="color: #4a9e6b;"></i> Ready
+            </span>
+
+            <span class="progress-percent" id="progressText">0%</span>
+        </div>
+
+        <div class="progress-wrap">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width:0%;"></div>
+            </div>
+            <span class="progress-label" id="progressLabel">0%</span>
+        </div>
+    </div>
 
     <!-- Log -->
     <div class="section" style="margin-bottom: 0; padding-bottom: 12px;">
@@ -103,5 +100,14 @@
 </div>
 
 <script src="Axis.js"></script>
+
+<!-- Small helper to show selected filename -->
+<script>
+document.getElementById('excelFileInput').addEventListener('change', function () {
+    const file = this.files[0];
+    document.getElementById('excelFilePath').value = file ? file.name : '';
+});
+</script>
+
 </body>
 </html>
