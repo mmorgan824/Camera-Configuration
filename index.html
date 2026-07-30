@@ -22,23 +22,21 @@
             <span class="section-subtitle">These credentials will be automatically set on all cameras</span>
         </div>
 
-        
-       <!-- Excel File Section -->
-   <div class="section">
-    <span class="section-title">Excel File</span>
-    <div class="file-input-wrapper">
-        <button class="btn btn-primary" id="browse-btn">Browse Files</button>
-        <input type="file" id="file-input" accept=".xlsx,.xls" style="display: none;">
-        <span class="file-name" id="file-name-display">No file selected</span>
-    </div>
-    <span class="section-subtitle" id="file-status">Select an Excel file with MAC, IP, SUBNET, GATEWAY columns</span>
-</div>
-      
+        <!-- Excel File Section -->
+        <div class="section">
+            <span class="section-title">Excel File</span>
+            <div class="file-input-wrapper">
+                <input type="file" id="file-input" accept=".xlsx,.xls">
+                <span class="file-name" id="file-name-display">No file selected</span>
+                <button class="btn btn-secondary btn-sm" id="browse-btn" type="button">Browse</button>
+            </div>
+            <span class="section-subtitle" id="file-status">Select an Excel file with MAC, IP, SUBNET, GATEWAY columns</span>
+        </div>
 
         <!-- Controls -->
         <div class="section">
             <div class="btn-group">
-                <button class="btn btn-primary" id="start-btn">Start Configuration</button>
+                <button class="btn btn-primary" id="start-btn" disabled>Start Configuration</button>
                 <button class="btn btn-danger" id="stop-btn" disabled>Stop</button>
                 <button class="btn btn-secondary" id="clear-btn">Clear Log</button>
             </div>
