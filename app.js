@@ -26,6 +26,7 @@ class CameraConfigApp {
         this.totalCount = document.getElementById('total-count');
         this.successCount = document.getElementById('success-count');
         this.failedCount = document.getElementById('failed-count');
+        this.browseBtn = document.getElementById('browse-btn');
 
         // State
         this.isRunning = false;
@@ -39,12 +40,30 @@ class CameraConfigApp {
         this.USERNAME = 'root';
         this.PASSWORD = 'pass';
 
+        // Check if elements exist
+        this.checkElements();
+
         // Check API connection
         this.checkAPIConnection();
 
         // Bind events
         this.bindEvents();
         this.logMessage('Ready to start configuration', 'info');
+    }
+
+    checkElements() {
+        console.log('Checking DOM elements...');
+        console.log('fileInput:', this.fileInput);
+        console.log('browseBtn:', this.browseBtn);
+        console.log('usernameInput:', this.usernameInput);
+        console.log('passwordInput:', this.passwordInput);
+        
+        if (!this.fileInput) {
+            console.error('File input element not found!');
+        }
+        if (!this.browseBtn) {
+            console.error('Browse button element not found!');
+        }
     }
 
     async checkAPIConnection() {
@@ -65,30 +84,81 @@ class CameraConfigApp {
     }
 
     bindEvents() {
+        // Start button
         this.startBtn.addEventListener('click', () => this.startConfiguration());
+        
+        // Stop button
         this.stopBtn.addEventListener('click', () => this.stopConfiguration());
+        
+        // Clear log button
         this.clearBtn.addEventListener('click', () => this.clearLog());
-        this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+        
+        // File input - handle change event
+        if (this.fileInput) {
+            this.fileInput.addEventListener('change', (e) => {
+                console.log('File input change event triggered', e);
+                this.handleFileSelect(e);
+            });
+            
+            // Debug: Log when file input is clicked
+            this.fileInput.addEventListener('click', () => {
+                console.log('File input clicked');
+            });
+        } else {
+            console.error('File input element not found!');
+        }
 
-        document.getElementById('browse-btn').addEventListener('click', () => {
-            this.fileInput.click();
-        });
+        // Browse button - triggers file input click
+        if (this.browseBtn) {
+            this.browseBtn.addEventListener('click', (e) => {
+                console.log('Browse button clicked');
+                e.preventDefault();
+                if (this.fileInput) {
+                    this.fileInput.click();
+                    console.log('File input click triggered');
+                } else {
+                    console.error('File input is null!');
+                }
+            });
+        } else {
+            console.error('Browse button element not found!');
+        }
 
-        this.usernameInput.addEventListener('change', () => {
-            this.USERNAME = this.usernameInput.value || 'root';
-        });
+        // Credentials change
+        if (this.usernameInput) {
+            this.usernameInput.addEventListener('change', () => {
+                this.USERNAME = this.usernameInput.value || 'root';
+            });
+        }
 
-        this.passwordInput.addEventListener('change', () => {
-            this.PASSWORD = this.passwordInput.value || 'pass';
-        });
+        if (this.passwordInput) {
+            this.passwordInput.addEventListener('change', () => {
+                this.PASSWORD = this.passwordInput.value || 'pass';
+            });
+        }
     }
 
     async handleFileSelect(event) {
-        const file = event.target.files[0];
+        console.log('handleFileSelect called', event);
+        
+        // Get the file from the event
+        const file = event.target.files && event.target.files[0];
+        console.log('Selected file:', file);
+        
         if (!file) {
+            console.log('No file selected');
             this.fileNameDisplay.textContent = 'No file selected';
             this.fileStatus.textContent = 'Select an Excel file with MAC, IP, SUBNET, GATEWAY columns';
             this.selectedFile = null;
+            return;
+        }
+
+        // Validate file type
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['xlsx', 'xls'].includes(ext)) {
+            this.logMessage(`❌ Invalid file type: ${ext}. Please select an Excel file (.xlsx or .xls)`, 'error');
+            this.fileStatus.textContent = `❌ Invalid file type: ${ext}`;
+            this.fileInput.value = ''; // Clear the input
             return;
         }
 
@@ -107,7 +177,8 @@ class CameraConfigApp {
             });
 
             if (!response.ok) {
-                throw new Error(`Upload failed: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Upload failed: ${response.status}`);
             }
 
             const data = await response.json();
@@ -124,9 +195,17 @@ class CameraConfigApp {
                 this.logMessage(`  ... and ${this.cameraData.length - 5} more`, 'info');
             }
 
+            // Enable start button
+            this.startBtn.disabled = false;
+
         } catch (error) {
+            console.error('Upload error:', error);
             this.fileStatus.textContent = `❌ Error: ${error.message}`;
             this.logMessage(`❌ Failed to upload file: ${error.message}`, 'error');
+            
+            // Reset file input
+            this.fileInput.value = '';
+            this.selectedFile = null;
         }
     }
 
@@ -343,7 +422,22 @@ class CameraConfigApp {
     }
 }
 
-// Initialize app
+// Initialize app when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM fully loaded');
     const app = new CameraConfigApp();
+    
+    // Make app available globally for debugging
+    window.app = app;
+    console.log('App initialized. Access via window.app');
 });
+
+// Also initialize if DOM is already loaded
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    console.log('DOM already loaded, initializing app...');
+    // Check if app already exists
+    if (!window.app) {
+        const app = new CameraConfigApp();
+        window.app = app;
+    }
+}
