@@ -1,3 +1,5 @@
+// app.js - Axis Camera Configuration Tool
+// Web-based version of the Python Tkinter application
 
 class CameraConfigApp {
     constructor() {
@@ -148,14 +150,14 @@ class CameraConfigApp {
         try {
             // Read the Excel file
             this.cameraData = await this.readExcelFile(this.selectedFile);
-            this.logMessage(`Found ${this.cameraData.length} cameras in Excel file`, 'info');
-
+            
             if (this.cameraData.length === 0) {
                 this.logMessage('No cameras found in Excel file', 'error');
                 this.updateStatus('No cameras found', 100, 'error');
                 return;
             }
 
+            this.logMessage(`Found ${this.cameraData.length} cameras in Excel file`, 'info');
             this.stats.total = this.cameraData.length;
             this.updateStats();
 
@@ -222,31 +224,134 @@ class CameraConfigApp {
         }
     }
 
-    // Read Excel file (simulated)
+    // ============================================================
+    // REAL EXCEL PARSING USING SHEETJS
+    // ============================================================
     async readExcelFile(file) {
         return new Promise((resolve, reject) => {
             this.logMessage('Reading Excel file...', 'info');
 
-            // In a real implementation, you would parse the actual Excel file here
-            // For demo, we return sample data
-            const sampleData = [
-                { mac: '00:11:22:33:44:55', ip: '192.168.1.100', subnet: '255.255.255.0', gateway: '192.168.1.1' },
-                { mac: '00:11:22:33:44:56', ip: '192.168.1.101', subnet: '255.255.255.0', gateway: '192.168.1.1' },
-                { mac: '00:11:22:33:44:57', ip: '192.168.1.102', subnet: '255.255.255.0', gateway: '192.168.1.1' },
-                { mac: '00:11:22:33:44:58', ip: '192.168.1.103', subnet: '255.255.255.0', gateway: '192.168.1.1' },
-                { mac: '00:11:22:33:44:59', ip: '192.168.1.104', subnet: '255.255.255.0', gateway: '192.168.1.1' },
-            ];
+            const reader = new FileReader();
+            
+            reader.onload = (e) => {
+                try {
+                    // Read the workbook
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Get first sheet
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    
+                    // Convert to JSON
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+                        defval: '',  // Default value for empty cells
+                        blankrows: false 
+                    });
 
-            setTimeout(() => {
-                resolve(sampleData);
-            }, 500);
+                    if (!jsonData || jsonData.length === 0) {
+                        reject(new Error('No data found in Excel file'));
+                        return;
+                    }
+
+                    // Get headers from first row
+                    const headers = Object.keys(jsonData[0]);
+                    this.logMessage(`Found columns: ${headers.join(', ')}`, 'info');
+
+                    // Normalize headers (uppercase, trim)
+                    const normalizedHeaders = headers.map(h => h.trim().toUpperCase());
+                    
+                    // Check required columns
+                    const requiredColumns = ['MAC', 'IP', 'SUBNET', 'GATEWAY'];
+                    const missingColumns = requiredColumns.filter(col => 
+                        !normalizedHeaders.includes(col)
+                    );
+
+                    if (missingColumns.length > 0) {
+                        const errorMsg = `Missing required columns: ${missingColumns.join(', ')}`;
+                        this.logMessage(`Found columns: ${headers.join(', ')}`, 'error');
+                        reject(new Error(errorMsg));
+                        return;
+                    }
+
+                    // Find the actual column names (preserving original case)
+                    const columnMap = {};
+                    headers.forEach(h => {
+                        const upper = h.trim().toUpperCase();
+                        if (requiredColumns.includes(upper)) {
+                            columnMap[upper] = h;
+                        }
+                    });
+
+                    this.logMessage(`Mapping columns: MAC→${columnMap.MAC}, IP→${columnMap.IP}, SUBNET→${columnMap.SUBNET}, GATEWAY→${columnMap.GATEWAY}`, 'info');
+
+                    // Parse data
+                    const cameras = [];
+                    for (const row of jsonData) {
+                        const mac = String(row[columnMap.MAC] || '').trim();
+                        const ip = String(row[columnMap.IP] || '').trim();
+                        const subnet = String(row[columnMap.SUBNET] || '').trim();
+                        const gateway = String(row[columnMap.GATEWAY] || '').trim();
+
+                        // Skip empty rows
+                        if (!mac || !ip || !subnet || !gateway) {
+                            this.logMessage(`Skipping row with missing data: MAC=${mac}, IP=${ip}`, 'warning');
+                            continue;
+                        }
+
+                        // Validate MAC address format
+                        const formattedMac = this.formatMac(mac);
+                        if (formattedMac.length !== 17) {
+                            this.logMessage(`Invalid MAC address format: ${mac}`, 'warning');
+                            continue;
+                        }
+
+                        cameras.push({
+                            mac: formattedMac,
+                            ip: ip,
+                            subnet: subnet,
+                            gateway: gateway,
+                            // Keep original data for reference
+                            original: row
+                        });
+                    }
+
+                    this.logMessage(`Successfully parsed ${cameras.length} cameras from Excel`, 'info');
+                    
+                    if (cameras.length === 0) {
+                        reject(new Error('No valid camera data found in Excel file'));
+                        return;
+                    }
+
+                    // Log first few entries for verification
+                    const previewCount = Math.min(3, cameras.length);
+                    for (let i = 0; i < previewCount; i++) {
+                        const c = cameras[i];
+                        this.logMessage(`Camera ${i+1}: MAC=${c.mac}, IP=${c.ip}, Subnet=${c.subnet}, Gateway=${c.gateway}`, 'info');
+                    }
+                    if (cameras.length > previewCount) {
+                        this.logMessage(`... and ${cameras.length - previewCount} more cameras`, 'info');
+                    }
+
+                    resolve(cameras);
+
+                } catch (error) {
+                    this.logMessage(`Error parsing Excel: ${error.message}`, 'error');
+                    reject(error);
+                }
+            };
+
+            reader.onerror = (error) => {
+                this.logMessage(`Error reading file: ${error.message}`, 'error');
+                reject(error);
+            };
+
+            reader.readAsArrayBuffer(file);
         });
     }
 
-    // Process a single camera (simulated)
+    // Process a single camera
     async processCamera(camera, index, total) {
-        const mac = this.formatMac(camera.mac);
-        this.logMessage(`Camera Found - MAC: ${mac}`, 'info');
+        this.logMessage(`Camera Found - MAC: ${camera.mac}`, 'info');
         this.logMessage(`Current IP: ${camera.ip}`, 'info');
         this.logMessage(`New IP: ${camera.ip}`, 'info');
         this.logMessage(`Subnet: ${camera.subnet}`, 'info');
@@ -270,7 +375,7 @@ class CameraConfigApp {
         if (!networkSuccess) {
             return { success: false, error: 'Failed to configure network' };
         }
-        this.logMessage(`SUCCESS: Configuration sent to ${mac}`, 'info');
+        this.logMessage(`SUCCESS: Configuration sent to ${camera.mac}`, 'info');
 
         // STEP 4: Configure image rotation
         this.logMessage('STEP 4: Configuring image rotation...', 'info');
@@ -356,9 +461,19 @@ class CameraConfigApp {
     }
 
     formatMac(mac) {
-        let cleaned = mac.replace(/[:]/g, '').replace(/[-]/g, '').toLowerCase();
-        // Ensure 12 characters
+        // Remove any separators and spaces
+        let cleaned = String(mac).replace(/[:]/g, '').replace(/[-]/g, '').replace(/\s/g, '').toLowerCase();
+        
+        // If it's a number, convert to string
+        cleaned = String(cleaned);
+        
+        // Ensure 12 characters (pad with zeros if needed)
         while (cleaned.length < 12) cleaned = '0' + cleaned;
+        
+        // If longer than 12, take first 12
+        if (cleaned.length > 12) cleaned = cleaned.substring(0, 12);
+        
+        // Format as XX:XX:XX:XX:XX:XX
         const parts = [];
         for (let i = 0; i < 12; i += 2) {
             parts.push(cleaned.substring(i, i + 2));
