@@ -1,5 +1,3 @@
-// app.js - Axis Camera Configuration Tool (with Real Backend API)
-
 class CameraConfigApp {
     constructor() {
         // API URL - adjust if backend is on different port
@@ -7,26 +5,26 @@ class CameraConfigApp {
             ? '/api' 
             : 'http://localhost:3001/api';
 
-        // DOM references
-        this.usernameInput = document.getElementById('username-input');
-        this.passwordInput = document.getElementById('password-input');
-        this.fileInput = document.getElementById('file-input');
-        this.fileNameDisplay = document.getElementById('file-name-display');
-        this.fileStatus = document.getElementById('file-status');
-        this.startBtn = document.getElementById('start-btn');
-        this.stopBtn = document.getElementById('stop-btn');
-        this.clearBtn = document.getElementById('clear-btn');
-        this.progressFill = document.getElementById('progress-fill');
-        this.progressLabel = document.getElementById('progress-label');
-        this.statusText = document.getElementById('status-text');
-        this.statusIndicator = document.getElementById('status-indicator');
-        this.logOutput = document.getElementById('log-output');
-        this.statsContainer = document.getElementById('stats-container');
-        this.processedCount = document.getElementById('processed-count');
-        this.totalCount = document.getElementById('total-count');
-        this.successCount = document.getElementById('success-count');
-        this.failedCount = document.getElementById('failed-count');
-        this.browseBtn = document.getElementById('browse-btn');
+        // DOM references - use querySelector for better reliability
+        this.usernameInput = document.querySelector('#username-input');
+        this.passwordInput = document.querySelector('#password-input');
+        this.fileInput = document.querySelector('#file-input');
+        this.fileNameDisplay = document.querySelector('#file-name-display');
+        this.fileStatus = document.querySelector('#file-status');
+        this.startBtn = document.querySelector('#start-btn');
+        this.stopBtn = document.querySelector('#stop-btn');
+        this.clearBtn = document.querySelector('#clear-btn');
+        this.progressFill = document.querySelector('#progress-fill');
+        this.progressLabel = document.querySelector('#progress-label');
+        this.statusText = document.querySelector('#status-text');
+        this.statusIndicator = document.querySelector('#status-indicator');
+        this.logOutput = document.querySelector('#log-output');
+        this.statsContainer = document.querySelector('#stats-container');
+        this.processedCount = document.querySelector('#processed-count');
+        this.totalCount = document.querySelector('#total-count');
+        this.successCount = document.querySelector('#success-count');
+        this.failedCount = document.querySelector('#failed-count');
+        this.browseBtn = document.querySelector('#browse-btn');
 
         // State
         this.isRunning = false;
@@ -85,20 +83,25 @@ class CameraConfigApp {
 
     bindEvents() {
         // Start button
-        this.startBtn.addEventListener('click', () => this.startConfiguration());
+        if (this.startBtn) {
+            this.startBtn.addEventListener('click', () => this.startConfiguration());
+        }
         
         // Stop button
-        this.stopBtn.addEventListener('click', () => this.stopConfiguration());
+        if (this.stopBtn) {
+            this.stopBtn.addEventListener('click', () => this.stopConfiguration());
+        }
         
         // Clear log button
-        this.clearBtn.addEventListener('click', () => this.clearLog());
+        if (this.clearBtn) {
+            this.clearBtn.addEventListener('click', () => this.clearLog());
+        }
         
         // File input - handle change event
         if (this.fileInput) {
-            this.fileInput.addEventListener('change', (e) => {
-                console.log('File input change event triggered', e);
-                this.handleFileSelect(e);
-            });
+            // Remove any existing listeners to prevent duplicates
+            this.fileInput.removeEventListener('change', this.handleFileSelect);
+            this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
             
             // Debug: Log when file input is clicked
             this.fileInput.addEventListener('click', () => {
@@ -110,16 +113,41 @@ class CameraConfigApp {
 
         // Browse button - triggers file input click
         if (this.browseBtn) {
+            // Remove any existing listeners to prevent duplicates
+            this.browseBtn.removeEventListener('click', this.handleBrowseClick);
+            
+            // Use an arrow function to maintain context
             this.browseBtn.addEventListener('click', (e) => {
                 console.log('Browse button clicked');
                 e.preventDefault();
+                e.stopPropagation();
+                
                 if (this.fileInput) {
-                    this.fileInput.click();
-                    console.log('File input click triggered');
+                    console.log('Triggering file input click');
+                    // Try multiple methods to trigger the file dialog
+                    try {
+                        this.fileInput.click();
+                        console.log('File input click triggered successfully');
+                    } catch (error) {
+                        console.error('Error triggering file input click:', error);
+                        // Fallback: create and trigger a new file input
+                        this.createFallbackFileInput();
+                    }
                 } else {
                     console.error('File input is null!');
+                    // Try to find the file input again
+                    this.fileInput = document.querySelector('#file-input');
+                    if (this.fileInput) {
+                        console.log('Re-found file input, triggering click');
+                        this.fileInput.click();
+                    } else {
+                        console.error('File input still not found after retry');
+                        this.createFallbackFileInput();
+                    }
                 }
             });
+            
+            console.log('Browse button listener attached');
         } else {
             console.error('Browse button element not found!');
         }
@@ -138,6 +166,24 @@ class CameraConfigApp {
         }
     }
 
+    // Fallback method if the file input click doesn't work
+    createFallbackFileInput() {
+        console.log('Creating fallback file input');
+        const fallbackInput = document.createElement('input');
+        fallbackInput.type = 'file';
+        fallbackInput.accept = '.xlsx,.xls';
+        fallbackInput.style.display = 'none';
+        document.body.appendChild(fallbackInput);
+        
+        fallbackInput.addEventListener('change', (e) => {
+            console.log('Fallback file input changed');
+            this.handleFileSelect(e);
+            document.body.removeChild(fallbackInput);
+        });
+        
+        fallbackInput.click();
+    }
+
     async handleFileSelect(event) {
         console.log('handleFileSelect called', event);
         
@@ -147,8 +193,12 @@ class CameraConfigApp {
         
         if (!file) {
             console.log('No file selected');
-            this.fileNameDisplay.textContent = 'No file selected';
-            this.fileStatus.textContent = 'Select an Excel file with MAC, IP, SUBNET, GATEWAY columns';
+            if (this.fileNameDisplay) {
+                this.fileNameDisplay.textContent = 'No file selected';
+            }
+            if (this.fileStatus) {
+                this.fileStatus.textContent = 'Select an Excel file with MAC, IP, SUBNET, GATEWAY columns';
+            }
             this.selectedFile = null;
             return;
         }
@@ -157,13 +207,19 @@ class CameraConfigApp {
         const ext = file.name.split('.').pop().toLowerCase();
         if (!['xlsx', 'xls'].includes(ext)) {
             this.logMessage(`❌ Invalid file type: ${ext}. Please select an Excel file (.xlsx or .xls)`, 'error');
-            this.fileStatus.textContent = `❌ Invalid file type: ${ext}`;
+            if (this.fileStatus) {
+                this.fileStatus.textContent = `❌ Invalid file type: ${ext}`;
+            }
             this.fileInput.value = ''; // Clear the input
             return;
         }
 
-        this.fileNameDisplay.textContent = file.name;
-        this.fileStatus.textContent = `Uploading: ${file.name}...`;
+        if (this.fileNameDisplay) {
+            this.fileNameDisplay.textContent = file.name;
+        }
+        if (this.fileStatus) {
+            this.fileStatus.textContent = `Uploading: ${file.name}...`;
+        }
         this.selectedFile = file;
 
         try {
@@ -183,7 +239,9 @@ class CameraConfigApp {
 
             const data = await response.json();
             this.cameraData = data.cameras;
-            this.fileStatus.textContent = `✅ Loaded ${data.count} cameras from ${file.name}`;
+            if (this.fileStatus) {
+                this.fileStatus.textContent = `✅ Loaded ${data.count} cameras from ${file.name}`;
+            }
             this.logMessage(`✅ Successfully loaded ${data.count} cameras from Excel`, 'info');
 
             // Show preview
@@ -196,15 +254,21 @@ class CameraConfigApp {
             }
 
             // Enable start button
-            this.startBtn.disabled = false;
+            if (this.startBtn) {
+                this.startBtn.disabled = false;
+            }
 
         } catch (error) {
             console.error('Upload error:', error);
-            this.fileStatus.textContent = `❌ Error: ${error.message}`;
+            if (this.fileStatus) {
+                this.fileStatus.textContent = `❌ Error: ${error.message}`;
+            }
             this.logMessage(`❌ Failed to upload file: ${error.message}`, 'error');
             
             // Reset file input
-            this.fileInput.value = '';
+            if (this.fileInput) {
+                this.fileInput.value = '';
+            }
             this.selectedFile = null;
         }
     }
@@ -222,38 +286,47 @@ class CameraConfigApp {
         const entry = document.createElement('span');
         entry.innerHTML = `[${timestamp}] ${level.toUpperCase()}: ${message}\n`;
         entry.className = levelClass;
-        this.logOutput.appendChild(entry);
-        this.logOutput.scrollTop = this.logOutput.scrollHeight;
+        
+        if (this.logOutput) {
+            this.logOutput.appendChild(entry);
+            this.logOutput.scrollTop = this.logOutput.scrollHeight;
+        }
     }
 
     clearLog() {
-        this.logOutput.innerHTML = '';
+        if (this.logOutput) {
+            this.logOutput.innerHTML = '';
+        }
         this.logMessage('Log cleared', 'info');
     }
 
     updateStatus(message, progress = null, statusType = 'ready') {
-        this.statusText.textContent = message;
-        this.statusIndicator.className = `status-indicator ${statusType}`;
+        if (this.statusText) {
+            this.statusText.textContent = message;
+        }
+        if (this.statusIndicator) {
+            this.statusIndicator.className = `status-indicator ${statusType}`;
+        }
 
-        if (progress !== null) {
+        if (progress !== null && this.progressFill && this.progressLabel) {
             const clamped = Math.min(100, Math.max(0, progress));
             this.progressFill.style.width = `${clamped}%`;
             this.progressLabel.textContent = `${Math.round(clamped)}% - ${message}`;
-        } else {
+        } else if (this.progressLabel) {
             this.progressLabel.textContent = message;
         }
     }
 
     updateStats() {
-        this.processedCount.textContent = this.stats.processed;
-        this.totalCount.textContent = this.stats.total;
-        this.successCount.textContent = this.stats.success;
-        this.failedCount.textContent = this.stats.failed;
+        if (this.processedCount) this.processedCount.textContent = this.stats.processed;
+        if (this.totalCount) this.totalCount.textContent = this.stats.total;
+        if (this.successCount) this.successCount.textContent = this.stats.success;
+        if (this.failedCount) this.failedCount.textContent = this.stats.failed;
     }
 
     setButtonsEnabled(start, stop) {
-        this.startBtn.disabled = !start;
-        this.stopBtn.disabled = !stop;
+        if (this.startBtn) this.startBtn.disabled = !start;
+        if (this.stopBtn) this.stopBtn.disabled = !stop;
     }
 
     async startConfiguration() {
@@ -265,13 +338,15 @@ class CameraConfigApp {
             return;
         }
 
-        this.USERNAME = this.usernameInput.value || 'root';
-        this.PASSWORD = this.passwordInput.value || 'pass';
+        this.USERNAME = this.usernameInput ? this.usernameInput.value || 'root' : 'root';
+        this.PASSWORD = this.passwordInput ? this.passwordInput.value || 'pass' : 'pass';
 
         this.isRunning = true;
         this.shouldStop = false;
         this.stats = { processed: 0, total: this.cameraData.length, success: 0, failed: 0 };
-        this.statsContainer.style.display = 'flex';
+        if (this.statsContainer) {
+            this.statsContainer.style.display = 'flex';
+        }
         this.updateStats();
 
         this.setButtonsEnabled(false, true);
@@ -425,17 +500,17 @@ class CameraConfigApp {
 // Initialize app when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM fully loaded');
-    const app = new CameraConfigApp();
-    
-    // Make app available globally for debugging
-    window.app = app;
-    console.log('App initialized. Access via window.app');
+    // Check if app already exists
+    if (!window.app) {
+        const app = new CameraConfigApp();
+        window.app = app;
+        console.log('App initialized. Access via window.app');
+    }
 });
 
 // Also initialize if DOM is already loaded
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
     console.log('DOM already loaded, initializing app...');
-    // Check if app already exists
     if (!window.app) {
         const app = new CameraConfigApp();
         window.app = app;
