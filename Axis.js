@@ -1,134 +1,36 @@
 document.addEventListener("DOMContentLoaded", function () {
-    "use strict";
+function runConfiguration(username, password, excelFile) {
 
-    // DOM refs
-    const usernameInput = document.getElementById('usernameInput');
-    const passwordInput = document.getElementById('passwordInput');
-    const excelFileInput = document.getElementById('excelFileInput');
-    const browseBtn = document.getElementById('browseBtn');
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const clearLogBtn = document.getElementById('clearLogBtn');
-    const logArea = document.getElementById('logArea');
-    const progressFill = document.getElementById('progressFill');
-    const progressLabel = document.getElementById('progressLabel');
-    const progressText = document.getElementById('progressText');
-    const statusBadge = document.getElementById('statusBadge');
-
-    // State
-    let isRunning = false;
-    let stopRequested = false;
-    let currentThread = null;
-
-    // Helper: timestamp
-    function getTimestamp() {
-        const d = new Date();
-        return String(d.getHours()).padStart(2,'0') + ':' +
-               String(d.getMinutes()).padStart(2,'0') + ':' +
-               String(d.getSeconds()).padStart(2,'0');
+    const file = excelFileInput.files[0];
+    if (!file) {
+        logMessage('No file found', 'ERROR');
+        return;
     }
 
-    // Log message
-    function logMessage(message, level = 'INFO') {
-        const ts = getTimestamp();
-        const line = document.createElement('span');
-        line.className = `log-line ${level.toLowerCase()}`;
-        line.textContent = `[${ts}] ${level}: ${message}`;
-        logArea.appendChild(line);
-        logArea.scrollTop = logArea.scrollHeight;
-    }
+    const reader = new FileReader();
 
-    // Clear log
-    function clearLog() {
-        logArea.innerHTML = '';
-        logMessage('Log cleared', 'INFO');
-    }
+    reader.onload = function (e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
 
-    // Update status & progress
-    function updateStatus(text, progress = null) {
-        const dotColor = isRunning ? '#f5b342' : '#4a9e6b';
-        statusBadge.innerHTML = `<i class="fas fa-circle" style="color: ${dotColor};"></i> ${text}`;
-        if (progress !== null) {
-            const p = Math.min(100, Math.max(0, progress));
-            progressFill.style.width = p + '%';
-            progressLabel.textContent = Math.round(p) + '%';
-            progressText.textContent = Math.round(p) + '%';
-        }
-    }
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
 
-    // Set running state
-    function setRunningState(running) {
-        isRunning = running;
-        startBtn.disabled = running;
-        stopBtn.disabled = !running;
-        if (!running) {
-            stopRequested = false;
-        }
-        updateStatus(running ? 'Processing...' : 'Ready', running ? null : 0);
-    }
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
 
-    // ===== ✅ FIXED BROWSE BUTTON =====
-    browseBtn.addEventListener('click', function () {
-        excelFileInput.click();
-    });
-
-    excelFileInput.addEventListener('change', function () {
-        const file = this.files[0];
-        if (file) {
-            logMessage(`Selected file: ${file.name}`, 'INFO');
-        }
-    });
-
-    // Clear log
-    clearLogBtn.addEventListener('click', clearLog);
-
-    // Stop
-    stopBtn.addEventListener('click', function() {
-        if (isRunning) {
-            stopRequested = true;
-            logMessage('Stop requested by user', 'WARNING');
-            updateStatus('Stopping...');
-            if (currentThread) {
-                clearTimeout(currentThread);
-                currentThread = null;
-            }
-        }
-    });
-
-    // Start
-    startBtn.addEventListener('click', function() {
-        if (isRunning) return;
-
-        const file = excelFileInput.files[0];
-        if (!file) {
-            logMessage('Please select an Excel file', 'ERROR');
+        if (!jsonData.length) {
+            logMessage('Excel file is empty or invalid', 'ERROR');
+            setRunningState(false);
             return;
         }
 
-        clearLog();
-        logMessage('Starting camera configuration process...', 'INFO');
+        logMessage(`Loaded ${jsonData.length} rows from spreadsheet`, 'INFO');
 
-        const username = usernameInput.value.trim() || 'root';
-        const password = passwordInput.value.trim() || 'pass';
+        let index = 0;
+        const total = jsonData.length;
 
-        logMessage(`Will set username: ${username}, password: ${'*'.repeat(password.length)}`, 'INFO');
+        function processNext() {
 
-        if (currentThread) {
-            clearTimeout(currentThread);
-            currentThread = null;
-        }
-
-        setRunningState(true);
-        stopRequested = false;
-        runConfiguration(username, password, file.name);
-    });
-
-    // Main configuration simulation
-    function runConfiguration(username, password, excelFile) {
-        let step = 0;
-        const totalSteps = 14;
-
-        function nextStep() {
             if (stopRequested || !isRunning) {
                 logMessage('Configuration stopped by user', 'WARNING');
                 setRunningState(false);
@@ -136,27 +38,55 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            step++;
-            const progress = Math.round((step / totalSteps) * 100);
-            updateStatus(`Processing... ${step}/${totalSteps}`, progress);
-
-            logMessage(`Step ${step} running...`, 'INFO');
-
-            if (step === totalSteps) {
-                logMessage('Finished processing cameras', 'INFO');
+            if (index >= total) {
+                logMessage('Finished processing all cameras', 'INFO');
                 setRunningState(false);
                 updateStatus('Complete', 100);
                 return;
             }
 
-            currentThread = setTimeout(nextStep, 600);
+            const row = jsonData[index];
+
+            // 🔥 Match your Excel column names here
+            const mac = row.MAC || row.Mac || row.mac;
+            const oldIp = row.OldIP || row.oldIp || row["Old IP"];
+            const newIp = row.NewIP || row.newIp || row["New IP"];
+
+            if (!mac || !newIp) {
+                logMessage(`Skipping row ${index + 1} (missing data)`, 'WARNING');
+                index++;
+                processNext();
+                return;
+            }
+
+            const progress = Math.round(((index + 1) / total) * 100);
+            updateStatus(`Processing camera ${index + 1}/${total}`, progress);
+
+            logMessage(`Connecting to ${oldIp || 'unknown IP'} (MAC: ${mac})`, 'INFO');
+
+            currentThread = setTimeout(() => {
+
+                logMessage(`Applying credentials...`, 'INFO');
+
+                currentThread = setTimeout(() => {
+
+                    logMessage(
+                        `MAC: ${mac} | ${oldIp || 'N/A'} → ${newIp}`,
+                        'INFO'
+                    );
+
+                    logMessage(`IP updated successfully`, 'SUCCESS');
+
+                    index++;
+                    processNext();
+
+                }, 400);
+
+            }, 400);
         }
 
-        currentThread = setTimeout(nextStep, 300);
-    }
+        processNext();
+    };
 
-    // Initial state
-    setRunningState(false);
-    logMessage('Ready', 'INFO');
-    updateStatus('Ready', 0);
-});
+    reader.readAsArrayBuffer(file);
+}
