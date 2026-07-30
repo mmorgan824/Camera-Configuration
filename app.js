@@ -6,26 +6,26 @@ class CameraConfigApp {
             ? '/api' 
             : 'http://localhost:3001/api';
 
-        // DOM references - using querySelector for better reliability
-        this.usernameInput = document.querySelector('#username-input');
-        this.passwordInput = document.querySelector('#password-input');
-        this.fileInput = document.querySelector('#file-input');
-        this.fileNameDisplay = document.querySelector('#file-name-display');
-        this.fileStatus = document.querySelector('#file-status');
-        this.startBtn = document.querySelector('#start-btn');
-        this.stopBtn = document.querySelector('#stop-btn');
-        this.clearBtn = document.querySelector('#clear-btn');
-        this.progressFill = document.querySelector('#progress-fill');
-        this.progressLabel = document.querySelector('#progress-label');
-        this.statusText = document.querySelector('#status-text');
-        this.statusIndicator = document.querySelector('#status-indicator');
-        this.logOutput = document.querySelector('#log-output');
-        this.statsContainer = document.querySelector('#stats-container');
-        this.processedCount = document.querySelector('#processed-count');
-        this.totalCount = document.querySelector('#total-count');
-        this.successCount = document.querySelector('#success-count');
-        this.failedCount = document.querySelector('#failed-count');
-        this.browseBtn = document.querySelector('#browse-btn');
+        // DOM references - use getElementById (more reliable than querySelector for IDs)
+        this.usernameInput = document.getElementById('username-input');
+        this.passwordInput = document.getElementById('password-input');
+        this.fileInput = document.getElementById('file-input');
+        this.fileNameDisplay = document.getElementById('file-name-display');
+        this.fileStatus = document.getElementById('file-status');
+        this.startBtn = document.getElementById('start-btn');
+        this.stopBtn = document.getElementById('stop-btn');
+        this.clearBtn = document.getElementById('clear-btn');
+        this.progressFill = document.getElementById('progress-fill');
+        this.progressLabel = document.getElementById('progress-label');
+        this.statusText = document.getElementById('status-text');
+        this.statusIndicator = document.getElementById('status-indicator');
+        this.logOutput = document.getElementById('log-output');
+        this.statsContainer = document.getElementById('stats-container');
+        this.processedCount = document.getElementById('processed-count');
+        this.totalCount = document.getElementById('total-count');
+        this.successCount = document.getElementById('success-count');
+        this.failedCount = document.getElementById('failed-count');
+        this.browseBtn = document.getElementById('browse-btn');
 
         // State
         this.isRunning = false;
@@ -51,18 +51,40 @@ class CameraConfigApp {
     }
 
     checkElements() {
-        console.log('Checking DOM elements...');
+        console.log('=== DOM ELEMENT CHECK ===');
         console.log('fileInput:', this.fileInput);
         console.log('browseBtn:', this.browseBtn);
         console.log('usernameInput:', this.usernameInput);
         console.log('passwordInput:', this.passwordInput);
+        console.log('startBtn:', this.startBtn);
+        console.log('stopBtn:', this.stopBtn);
+        console.log('clearBtn:', this.clearBtn);
+        
+        // Check if elements exist and log their attributes
+        if (this.fileInput) {
+            console.log('fileInput attributes:', {
+                id: this.fileInput.id,
+                type: this.fileInput.type,
+                accept: this.fileInput.accept,
+                style: this.fileInput.style.display
+            });
+        }
+        
+        if (this.browseBtn) {
+            console.log('browseBtn attributes:', {
+                id: this.browseBtn.id,
+                text: this.browseBtn.textContent,
+                type: this.browseBtn.type
+            });
+        }
         
         if (!this.fileInput) {
-            console.error('File input element not found!');
+            console.error('❌ File input element not found!');
         }
         if (!this.browseBtn) {
-            console.error('Browse button element not found!');
+            console.error('❌ Browse button element not found!');
         }
+        console.log('=== END ELEMENT CHECK ===');
     }
 
     async checkAPIConnection() {
@@ -83,19 +105,24 @@ class CameraConfigApp {
     }
 
     bindEvents() {
+        console.log('=== BINDING EVENTS ===');
+        
         // Start button
         if (this.startBtn) {
             this.startBtn.addEventListener('click', () => this.startConfiguration());
+            console.log('Start button event bound');
         }
         
         // Stop button
         if (this.stopBtn) {
             this.stopBtn.addEventListener('click', () => this.stopConfiguration());
+            console.log('Stop button event bound');
         }
         
         // Clear log button
         if (this.clearBtn) {
             this.clearBtn.addEventListener('click', () => this.clearLog());
+            console.log('Clear button event bound');
         }
         
         // File input - handle change event
@@ -108,52 +135,61 @@ class CameraConfigApp {
             });
             
             // Debug: Log when file input is clicked
-            this.fileInput.addEventListener('click', () => {
-                console.log('File input clicked');
+            this.fileInput.addEventListener('click', (e) => {
+                console.log('File input clicked directly');
+                console.log('File input event:', e);
             });
+            
+            console.log('File input event bound');
         } else {
-            console.error('File input element not found!');
+            console.error('❌ File input element not found!');
         }
 
-        // Browse button - triggers file input click
+        // Browse button - MULTIPLE APPROACHES
         if (this.browseBtn) {
-            // Remove any existing listeners to prevent duplicates
-            this.browseBtn.removeEventListener('click', this.handleBrowseClick);
+            console.log('Browse button found, binding events...');
             
-            // Use an arrow function to maintain context
+            // Approach 1: Click event
             this.browseBtn.addEventListener('click', (e) => {
-                console.log('Browse button clicked');
+                console.log('🔵 Browse button clicked (Approach 1)');
                 e.preventDefault();
                 e.stopPropagation();
-                
-                if (this.fileInput) {
-                    console.log('Triggering file input click');
-                    // Try multiple methods to trigger the file dialog
-                    try {
-                        this.fileInput.click();
-                        console.log('File input click triggered successfully');
-                    } catch (error) {
-                        console.error('Error triggering file input click:', error);
-                        // Fallback: create and trigger a new file input
-                        this.createFallbackFileInput();
-                    }
-                } else {
-                    console.error('File input is null!');
-                    // Try to find the file input again
-                    this.fileInput = document.querySelector('#file-input');
-                    if (this.fileInput) {
-                        console.log('Re-found file input, triggering click');
-                        this.fileInput.click();
-                    } else {
-                        console.error('File input still not found after retry');
-                        this.createFallbackFileInput();
-                    }
-                }
+                this.openFileDialog();
             });
             
-            console.log('Browse button listener attached');
+            // Approach 2: Mouse down event (fires before click)
+            this.browseBtn.addEventListener('mousedown', (e) => {
+                console.log('🔵 Browse button mousedown (Approach 2)');
+                // Don't prevent default here, let click handle it
+            });
+            
+            // Approach 3: Touch event for mobile
+            this.browseBtn.addEventListener('touchstart', (e) => {
+                console.log('🔵 Browse button touchstart (Approach 3)');
+                e.preventDefault();
+                this.openFileDialog();
+            });
+            
+            // Approach 4: Direct onclick attribute (as backup)
+            this.browseBtn.onclick = (e) => {
+                console.log('🔵 Browse button onclick attribute (Approach 4)');
+                e.preventDefault();
+                this.openFileDialog();
+                return false;
+            };
+            
+            console.log('Browse button events bound');
         } else {
-            console.error('Browse button element not found!');
+            console.error('❌ Browse button element not found!');
+            // Try to find it again with querySelector
+            this.browseBtn = document.querySelector('#browse-btn');
+            if (this.browseBtn) {
+                console.log('✅ Found browse button with querySelector, binding events...');
+                this.browseBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.openFileDialog();
+                });
+            }
         }
 
         // Credentials change
@@ -161,7 +197,6 @@ class CameraConfigApp {
             this.usernameInput.addEventListener('change', () => {
                 this.USERNAME = this.usernameInput.value || 'root';
             });
-            // Also update on input for real-time changes
             this.usernameInput.addEventListener('input', () => {
                 this.USERNAME = this.usernameInput.value || 'root';
             });
@@ -171,33 +206,106 @@ class CameraConfigApp {
             this.passwordInput.addEventListener('change', () => {
                 this.PASSWORD = this.passwordInput.value || 'pass';
             });
-            // Also update on input for real-time changes
             this.passwordInput.addEventListener('input', () => {
                 this.PASSWORD = this.passwordInput.value || 'pass';
             });
         }
+        
+        console.log('=== END BINDING EVENTS ===');
+    }
+
+    // Centralized method to open file dialog
+    openFileDialog() {
+        console.log('📂 Opening file dialog...');
+        console.log('Current fileInput reference:', this.fileInput);
+        
+        // Method 1: Direct click
+        if (this.fileInput) {
+            try {
+                console.log('Method 1: Trying direct click');
+                this.fileInput.click();
+                console.log('✅ Direct click triggered successfully');
+                return;
+            } catch (error) {
+                console.error('❌ Direct click failed:', error);
+            }
+        } else {
+            console.error('❌ fileInput is null, trying to find it again');
+            this.fileInput = document.getElementById('file-input');
+            if (this.fileInput) {
+                console.log('✅ Re-found fileInput, trying click again');
+                try {
+                    this.fileInput.click();
+                    console.log('✅ Click triggered after re-finding');
+                    return;
+                } catch (error) {
+                    console.error('❌ Click after re-finding failed:', error);
+                }
+            }
+        }
+        
+        // Method 2: Create a new file input
+        console.log('Method 2: Creating new file input as fallback');
+        this.createFallbackFileInput();
     }
 
     // Fallback method if the file input click doesn't work
     createFallbackFileInput() {
-        console.log('Creating fallback file input');
+        console.log('🔧 Creating fallback file input');
+        
+        // Remove any existing fallback
+        const existingFallback = document.getElementById('fallback-file-input');
+        if (existingFallback) {
+            existingFallback.remove();
+        }
+        
         const fallbackInput = document.createElement('input');
+        fallbackInput.id = 'fallback-file-input';
         fallbackInput.type = 'file';
         fallbackInput.accept = '.xlsx,.xls';
-        fallbackInput.style.display = 'none';
-        document.body.appendChild(fallbackInput);
+        fallbackInput.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+            z-index: 9999;
+        `;
         
+        // Add the input to the body
+        document.body.appendChild(fallbackInput);
+        console.log('✅ Fallback input added to DOM');
+        
+        // Handle file selection
         fallbackInput.addEventListener('change', (e) => {
-            console.log('Fallback file input changed');
+            console.log('📄 Fallback file input changed', e);
             this.handleFileSelect(e);
-            document.body.removeChild(fallbackInput);
+            // Clean up
+            setTimeout(() => {
+                if (fallbackInput.parentNode) {
+                    fallbackInput.remove();
+                    console.log('🧹 Fallback input removed');
+                }
+            }, 100);
         });
         
-        fallbackInput.click();
+        // Trigger click on the fallback
+        try {
+            fallbackInput.click();
+            console.log('✅ Fallback click triggered');
+        } catch (error) {
+            console.error('❌ Fallback click failed:', error);
+            // Clean up if click fails
+            if (fallbackInput.parentNode) {
+                fallbackInput.remove();
+            }
+        }
     }
 
     async handleFileSelect(event) {
-        console.log('handleFileSelect called', event);
+        console.log('📄 handleFileSelect called', event);
         
         // Get the file from the event
         const file = event.target.files && event.target.files[0];
@@ -224,6 +332,11 @@ class CameraConfigApp {
             }
             if (this.fileInput) {
                 this.fileInput.value = ''; // Clear the input
+            }
+            // Also clear fallback if it exists
+            const fallbackInput = document.getElementById('fallback-file-input');
+            if (fallbackInput) {
+                fallbackInput.value = '';
             }
             return;
         }
@@ -513,20 +626,31 @@ class CameraConfigApp {
 
 // Initialize app when DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM fully loaded');
+    console.log('🎯 DOM fully loaded');
     // Check if app already exists
     if (!window.app) {
         const app = new CameraConfigApp();
         window.app = app;
-        console.log('App initialized. Access via window.app');
+        console.log('✅ App initialized. Access via window.app');
+    } else {
+        console.log('ℹ️ App already exists');
     }
 });
 
 // Also initialize if DOM is already loaded
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    console.log('DOM already loaded, initializing app...');
+    console.log('🎯 DOM already loaded, initializing app...');
     if (!window.app) {
         const app = new CameraConfigApp();
         window.app = app;
     }
 }
+
+// Additional safety: If the page loads via AJAX or dynamic content
+window.addEventListener('load', () => {
+    console.log('🎯 Window fully loaded');
+    if (!window.app) {
+        const app = new CameraConfigApp();
+        window.app = app;
+    }
+});           
