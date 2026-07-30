@@ -26,6 +26,10 @@ class CameraConfigApp {
         this.totalCount = document.getElementById('total-count');
         this.successCount = document.getElementById('success-count');
         this.failedCount = document.getElementById('failed-count');
+        this.fileProgressFill = document.getElementById('file-progress-fill');
+        this.fileProgressText = document.getElementById('file-progress-text');
+        this.fileUploadProgress = document.getElementById('file-upload-progress');
+        this.browseBtn = document.getElementById('browse-btn');
 
         // State
         this.isRunning = false;
