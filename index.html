@@ -4,16 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Axis Camera Configuration Tool</title>
-    <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
-    <!-- separate CSS file: style.css -->
     <link rel="stylesheet" href="Axis.css" />
 </head>
 <body>
     <div class="app-container" id="app">
         <h1><i class="fas fa-video"></i> Axis Camera Configuration</h1>
 
-        <!-- CREDENTIALS section -->
         <div class="section">
             <div class="section-title"><i class="fas fa-key"></i> Credentials to Set on Cameras</div>
             <div class="row">
@@ -25,7 +22,6 @@
             <div class="hint"><i class="fas fa-info-circle"></i> These credentials will be automatically set on all cameras</div>
         </div>
 
-        <!-- EXCEL FILE section -->
         <div class="section">
             <div class="section-title"><i class="fas fa-file-excel"></i> Excel File</div>
             <div class="row">
@@ -37,7 +33,6 @@
             </div>
         </div>
 
-        <!-- CONTROLS + PROGRESS + STATUS -->
         <div class="section" style="padding-bottom: 14px;">
             <div class="action-bar">
                 <button class="btn btn-success" id="startBtn"><i class="fas fa-play"></i> Start Configuration</button>
@@ -52,7 +47,6 @@
             </div>
         </div>
 
-        <!-- LOG output -->
         <div class="section" style="margin-bottom: 0; padding-bottom: 12px;">
             <div class="section-title" style="margin-bottom: 8px;"><i class="fas fa-terminal"></i> Log Output</div>
             <div class="log-area" id="logArea">
@@ -61,7 +55,6 @@
         </div>
     </div>
 
-    <!-- separate JS file: script.js -->
     <script src="script.js"></script>
 </body>
 </html>
