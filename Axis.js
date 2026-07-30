@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let isRunning = false;
     let stopRequested = false;
     let currentThread = null;
+    let cameraData = []; // Store parsed camera data
 
     // Helper: timestamp
     function getTimestamp() {
@@ -70,6 +71,39 @@ document.addEventListener("DOMContentLoaded", function () {
         updateStatus(running ? 'Processing...' : 'Ready', running ? null : 0);
     }
 
+    // Parse Excel file and extract camera data
+    function parseExcelFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Get first worksheet
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+                    
+                    // Map the data - adjust column names as needed
+                    cameraData = jsonData.map(row => ({
+                        mac: row['MAC Address'] || row['MAC'] || row['Mac'] || 'N/A',
+                        ip: row['New IP'] || row['IP Address'] || row['IP'] || 'N/A',
+                        subnet: row['Subnet'] || row['Subnet Mask'] || '255.255.255.0',
+                        gateway: row['Gateway'] || row['Default Gateway'] || '192.168.1.1'
+                    }));
+                    
+                    resolve(cameraData);
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            
+            reader.onerror = reject;
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
     // Browse button
     browseBtn.addEventListener('click', function () {
         excelFileInput.click();
@@ -79,6 +113,21 @@ document.addEventListener("DOMContentLoaded", function () {
         const file = this.files[0];
         if (file) {
             logMessage(`Selected file: ${file.name}`, 'INFO');
+            
+            // Parse and show preview of camera data
+            parseExcelFile(file)
+                .then(data => {
+                    logMessage(`Found ${data.length} cameras in spreadsheet`, 'INFO');
+                    data.forEach((camera, index) => {
+                        logMessage(
+                            `Camera ${index + 1}: MAC: ${camera.mac}, IP: ${camera.ip}, Subnet: ${camera.subnet}, Gateway: ${camera.gateway}`,
+                            'INFO'
+                        );
+                    });
+                })
+                .catch(error => {
+                    logMessage(`Error parsing Excel: ${error.message}`, 'ERROR');
+                });
         }
     });
 
@@ -120,21 +169,38 @@ document.addEventListener("DOMContentLoaded", function () {
             'INFO'
         );
 
-        if (currentThread) {
-            clearTimeout(currentThread);
-            currentThread = null;
-        }
+        // Parse the Excel file first
+        parseExcelFile(file)
+            .then(data => {
+                if (data.length === 0) {
+                    logMessage('No camera data found in spreadsheet', 'ERROR');
+                    setRunningState(false);
+                    return;
+                }
+                
+                logMessage(`Loaded ${data.length} cameras for configuration`, 'INFO');
+                
+                if (currentThread) {
+                    clearTimeout(currentThread);
+                    currentThread = null;
+                }
 
-        setRunningState(true);
-        stopRequested = false;
+                setRunningState(true);
+                stopRequested = false;
 
-        runConfiguration(username, password, file.name);
+                runConfiguration(username, password, data);
+            })
+            .catch(error => {
+                logMessage(`Error loading Excel file: ${error.message}`, 'ERROR');
+                setRunningState(false);
+            });
     });
 
-    // Main configuration simulation (your original logic)
-    function runConfiguration(username, password, excelFile) {
-        let step = 0;
-        const totalSteps = 14;
+    // Main configuration with actual camera data
+    function runConfiguration(username, password, cameras) {
+        let currentIndex = 0;
+        const totalCameras = cameras.length;
+        const totalSteps = totalCameras; // One step per camera
 
         function nextStep() {
             if (stopRequested || !isRunning) {
@@ -144,27 +210,41 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            step++;
-            const progress = Math.round((step / totalSteps) * 100);
-
-            updateStatus(`Processing... ${step}/${totalSteps}`, progress);
-            logMessage(`Step ${step} running...`, 'INFO');
-
-            if (step === totalSteps) {
-                logMessage('Finished processing cameras', 'INFO');
+            if (currentIndex >= totalCameras) {
+                logMessage('🎉 All cameras configured successfully!', 'INFO');
                 setRunningState(false);
                 updateStatus('Complete', 100);
                 return;
             }
 
-            currentThread = setTimeout(nextStep, 600);
+            const camera = cameras[currentIndex];
+            const progress = Math.round(((currentIndex + 1) / totalCameras) * 100);
+
+            // Log detailed information about the current camera
+            logMessage(`📷 Processing Camera ${currentIndex + 1}/${totalCameras}`, 'INFO');
+            logMessage(`   MAC Address: ${camera.mac}`, 'INFO');
+            logMessage(`   Setting IP: ${camera.ip}`, 'INFO');
+            logMessage(`   Setting Subnet: ${camera.subnet}`, 'INFO');
+            logMessage(`   Setting Gateway: ${camera.gateway}`, 'INFO');
+            logMessage(`   Applying credentials: ${username}/****`, 'INFO');
+
+            // Simulate configuration process
+            const configDelay = Math.floor(Math.random() * 800) + 600; // 600-1400ms
+
+            updateStatus(`Configuring ${camera.mac} (${currentIndex + 1}/${totalCameras})`, progress);
+
+            currentIndex++;
+
+            // Simulate variable processing time
+            currentThread = setTimeout(nextStep, configDelay);
         }
 
-        currentThread = setTimeout(nextStep, 300);
+        // Start the first step with a slight delay
+        currentThread = setTimeout(nextStep, 500);
     }
 
     // Initial state
     setRunningState(false);
-    logMessage('Ready', 'INFO');
+    logMessage('Ready - Please load an Excel file with camera data', 'INFO');
     updateStatus('Ready', 0);
 });
