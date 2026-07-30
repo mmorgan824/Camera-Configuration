@@ -1,11 +1,12 @@
 {
-  "name": "axis-camera-api",
+  "name": "axis-camera-tool",
   "version": "1.0.0",
-  "description": "Backend API for Axis Camera Configuration Tool",
+  "description": "Axis Camera Configuration Tool",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "serve": "npx serve ."
   },
   "dependencies": {
     "axios": "^1.6.0",
@@ -15,6 +16,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "serve": "^14.0.0"
   }
 }
