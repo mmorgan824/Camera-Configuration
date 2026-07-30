@@ -1,5 +1,3 @@
-// app.js - Axis Camera Configuration Tool
-// Web-based version of the Python Tkinter application
 
 class CameraConfigApp {
     constructor() {
