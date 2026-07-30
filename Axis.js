@@ -1,8 +1,7 @@
-// script.js
 (function() {
     "use strict";
 
-    // ----- DOM refs -----
+    // DOM refs
     const usernameInput = document.getElementById('usernameInput');
     const passwordInput = document.getElementById('passwordInput');
     const excelFileInput = document.getElementById('excelFileInput');
@@ -16,12 +15,12 @@
     const progressText = document.getElementById('progressText');
     const statusBadge = document.getElementById('statusBadge');
 
-    // ----- state -----
+    // State
     let isRunning = false;
     let stopRequested = false;
     let currentThread = null;
 
-    // ----- helpers -----
+    // Helper: timestamp
     function getTimestamp() {
         const d = new Date();
         return String(d.getHours()).padStart(2,'0') + ':' +
@@ -29,6 +28,7 @@
                String(d.getSeconds()).padStart(2,'0');
     }
 
+    // Log message
     function logMessage(message, level = 'INFO') {
         const ts = getTimestamp();
         const line = document.createElement('span');
@@ -38,11 +38,13 @@
         logArea.scrollTop = logArea.scrollHeight;
     }
 
+    // Clear log
     function clearLog() {
         logArea.innerHTML = '';
         logMessage('Log cleared', 'INFO');
     }
 
+    // Update status & progress
     function updateStatus(text, progress = null) {
         const dotColor = isRunning ? '#f5b342' : '#4a9e6b';
         statusBadge.innerHTML = `<i class="fas fa-circle" style="color: ${dotColor};"></i> ${text}`;
@@ -54,6 +56,7 @@
         }
     }
 
+    // Set running state
     function setRunningState(running) {
         isRunning = running;
         startBtn.disabled = running;
@@ -64,27 +67,33 @@
         updateStatus(running ? 'Processing...' : 'Ready', running ? null : 0);
     }
 
-    // ----- browse file (hidden input) -----
-    browseBtn.addEventListener('click', function() {
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'file';
-        hiddenInput.accept = '.xlsx,.xls';
-        hiddenInput.onchange = function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                excelFileInput.value = file.name;
-                logMessage(`Selected file: ${file.name}`, 'INFO');
-            }
-            document.body.removeChild(hiddenInput);
-        };
-        document.body.appendChild(hiddenInput);
-        hiddenInput.click();
+    // ===== BROWSE BUTTON - FIXED =====
+    // Create a hidden file input once and reuse it
+    const hiddenFileInput = document.createElement('input');
+    hiddenFileInput.type = 'file';
+    hiddenFileInput.accept = '.xlsx,.xls';
+    hiddenFileInput.style.display = 'none';
+    document.body.appendChild(hiddenFileInput);
+
+    browseBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        hiddenFileInput.click(); // Trigger the hidden file input
     });
 
-    // ----- clear log -----
+    hiddenFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            excelFileInput.value = file.name;
+            logMessage(`Selected file: ${file.name}`, 'INFO');
+        }
+        // Reset so the same file can be re-selected
+        hiddenFileInput.value = '';
+    });
+
+    // Clear log
     clearLogBtn.addEventListener('click', clearLog);
 
-    // ----- stop -----
+    // Stop
     stopBtn.addEventListener('click', function() {
         if (isRunning) {
             stopRequested = true;
@@ -97,7 +106,7 @@
         }
     });
 
-    // ----- START configuration (simulated) -----
+    // Start
     startBtn.addEventListener('click', function() {
         if (isRunning) return;
 
@@ -123,7 +132,7 @@
         runConfiguration(username, password, file);
     });
 
-    // ----- main configuration simulation -----
+    // Main configuration simulation
     function runConfiguration(username, password, excelFile) {
         let step = 0;
         const totalSteps = 14;
@@ -140,7 +149,7 @@
             const progress = Math.min(100, Math.round((step / totalSteps) * 100));
             updateStatus(`Processing... ${step}/${totalSteps}`, progress);
 
-            // Simulate steps (mirroring Axis.py behavior)
+            // Simulate steps
             if (step === 1) {
                 logMessage('Scanning ARP table for cameras...', 'INFO');
                 logMessage('Found 3 devices on network', 'INFO');
@@ -224,7 +233,7 @@
         currentThread = setTimeout(nextStep, 300);
     }
 
-    // ----- initial state -----
+    // Initial state
     setRunningState(false);
     logMessage('Ready', 'INFO');
     updateStatus('Ready', 0);
