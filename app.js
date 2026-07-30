@@ -1,11 +1,8 @@
-// app.js - Axis Camera Configuration Tool (with Real Backend API)
 
 class CameraConfigApp {
     constructor() {
-        // API URL - adjust if backend is on different port
-        this.apiUrl = process.env.NODE_ENV === 'production' 
-            ? '/api' 
-            : 'http://localhost:3001/api';
+        // Detect environment and set API URL
+        this.apiUrl = this.getApiUrl();
 
         // DOM references
         this.usernameInput = document.getElementById('username-input');
@@ -43,12 +40,28 @@ class CameraConfigApp {
         this.USERNAME = 'root';
         this.PASSWORD = 'pass';
 
+        // Log API URL
+        console.log('API URL:', this.apiUrl);
+
         // Check API connection
         this.checkAPIConnection();
 
         // Bind events
         this.bindEvents();
         this.logMessage('Ready to start configuration', 'info');
+    }
+
+    getApiUrl() {
+        // If running on Vercel, use the same domain
+        if (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('localhost')) {
+            // Check if we're on the same port or different
+            if (window.location.port === '3000') {
+                return 'http://localhost:3001/api'; // Local dev with separate backend
+            }
+            return '/api'; // Vercel or same server
+        }
+        // Local development
+        return 'http://localhost:3001/api';
     }
 
     async checkAPIConnection() {
@@ -63,21 +76,41 @@ class CameraConfigApp {
             }
         } catch (error) {
             this.logMessage(`❌ Cannot connect to backend API: ${error.message}`, 'error');
-            this.logMessage('Make sure the backend server is running on port 3001', 'error');
+            if (window.location.hostname.includes('vercel.app')) {
+                this.logMessage('Make sure the API routes are properly configured in vercel.json', 'error');
+            } else {
+                this.logMessage('Make sure the backend server is running on port 3001', 'error');
+                this.logMessage('Run: npm start in the backend directory', 'error');
+            }
             this.updateStatus('API connection failed', null, 'error');
         }
     }
 
     bindEvents() {
+        // Start button
         this.startBtn.addEventListener('click', () => this.startConfiguration());
+        
+        // Stop button
         this.stopBtn.addEventListener('click', () => this.stopConfiguration());
+        
+        // Clear log button
         this.clearBtn.addEventListener('click', () => this.clearLog());
-        this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
-
-        document.getElementById('browse-btn').addEventListener('click', () => {
-            this.fileInput.click();
+        
+        // Browse button - triggers file input click
+        if (this.browseBtn) {
+            this.browseBtn.addEventListener('click', () => {
+                console.log('Browse button clicked, triggering file input');
+                this.fileInput.click();
+            });
+        }
+        
+        // File input - handle change event
+        this.fileInput.addEventListener('change', (e) => {
+            console.log('File input changed', e);
+            this.handleFileSelect(e);
         });
 
+        // Credentials change
         this.usernameInput.addEventListener('change', () => {
             this.USERNAME = this.usernameInput.value || 'root';
         });
@@ -85,14 +118,33 @@ class CameraConfigApp {
         this.passwordInput.addEventListener('change', () => {
             this.PASSWORD = this.passwordInput.value || 'pass';
         });
+
+        // Debug: Log when file input is clicked
+        this.fileInput.addEventListener('click', () => {
+            console.log('File input clicked');
+        });
     }
 
     async handleFileSelect(event) {
-        const file = event.target.files[0];
+        console.log('handleFileSelect called', event);
+        
+        const file = event.target.files && event.target.files[0];
+        console.log('Selected file:', file);
+        
         if (!file) {
+            console.log('No file selected');
             this.fileNameDisplay.textContent = 'No file selected';
             this.fileStatus.textContent = 'Select an Excel file with MAC, IP, SUBNET, GATEWAY columns';
             this.selectedFile = null;
+            return;
+        }
+
+        // Validate file type
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['xlsx', 'xls'].includes(ext)) {
+            this.logMessage(`❌ Invalid file type: ${ext}. Please select an Excel file (.xlsx or .xls)`, 'error');
+            this.fileStatus.textContent = `❌ Invalid file type: ${ext}`;
+            this.fileInput.value = ''; // Clear the input
             return;
         }
 
@@ -100,23 +152,44 @@ class CameraConfigApp {
         this.fileStatus.textContent = `Uploading: ${file.name}...`;
         this.selectedFile = file;
 
+        // Show upload progress
+        this.fileUploadProgress.style.display = 'block';
+        this.fileProgressFill.style.width = '0%';
+        this.fileProgressText.textContent = 'Uploading...';
+
         try {
             // Upload file to backend
             const formData = new FormData();
             formData.append('file', file);
+
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += 10;
+                if (progress <= 90) {
+                    this.fileProgressFill.style.width = `${progress}%`;
+                    this.fileProgressText.textContent = `Uploading... ${progress}%`;
+                }
+            }, 100);
 
             const response = await fetch(`${this.apiUrl}/upload`, {
                 method: 'POST',
                 body: formData
             });
 
+            clearInterval(progressInterval);
+            this.fileProgressFill.style.width = '100%';
+
             if (!response.ok) {
-                throw new Error(`Upload failed: ${response.status}`);
+                const errorData = await response.json();
+                throw new Error(errorData.error || `Upload failed: ${response.status}`);
             }
 
             const data = await response.json();
             this.cameraData = data.cameras;
+            
             this.fileStatus.textContent = `✅ Loaded ${data.count} cameras from ${file.name}`;
+            this.fileProgressText.textContent = `✅ Complete! Loaded ${data.count} cameras`;
             this.logMessage(`✅ Successfully loaded ${data.count} cameras from Excel`, 'info');
 
             // Show preview
@@ -128,9 +201,30 @@ class CameraConfigApp {
                 this.logMessage(`  ... and ${this.cameraData.length - 5} more`, 'info');
             }
 
+            // Enable start button if we have data
+            if (this.cameraData.length > 0) {
+                this.startBtn.disabled = false;
+            }
+
+            // Hide progress after 2 seconds
+            setTimeout(() => {
+                this.fileUploadProgress.style.display = 'none';
+            }, 2000);
+
         } catch (error) {
+            console.error('Upload error:', error);
             this.fileStatus.textContent = `❌ Error: ${error.message}`;
+            this.fileProgressText.textContent = `❌ Error: ${error.message}`;
             this.logMessage(`❌ Failed to upload file: ${error.message}`, 'error');
+            
+            // Reset file input
+            this.fileInput.value = '';
+            this.selectedFile = null;
+            
+            // Show error for a bit longer
+            setTimeout(() => {
+                this.fileUploadProgress.style.display = 'none';
+            }, 5000);
         }
     }
 
@@ -349,5 +443,11 @@ class CameraConfigApp {
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, initializing app...');
     const app = new CameraConfigApp();
+    
+    // Make app available globally for debugging
+    window.app = app;
+    console.log('App initialized. You can access it via window.app');
 });
+     
