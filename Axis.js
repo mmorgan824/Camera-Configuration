@@ -1,4 +1,4 @@
-(function() {
+document.addEventListener("DOMContentLoaded", function () {
     "use strict";
 
     // DOM refs
@@ -67,27 +67,16 @@
         updateStatus(running ? 'Processing...' : 'Ready', running ? null : 0);
     }
 
-    // ===== BROWSE BUTTON - FIXED =====
-    // Create a hidden file input once and reuse it
-    const hiddenFileInput = document.createElement('input');
-    hiddenFileInput.type = 'file';
-    hiddenFileInput.accept = '.xlsx,.xls';
-    hiddenFileInput.style.display = 'none';
-    document.body.appendChild(hiddenFileInput);
-
-    browseBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        hiddenFileInput.click(); // Trigger the hidden file input
+    // ===== ✅ FIXED BROWSE BUTTON =====
+    browseBtn.addEventListener('click', function () {
+        excelFileInput.click();
     });
 
-    hiddenFileInput.addEventListener('change', function(e) {
-        const file = e.target.files[0];
+    excelFileInput.addEventListener('change', function () {
+        const file = this.files[0];
         if (file) {
-            excelFileInput.value = file.name;
             logMessage(`Selected file: ${file.name}`, 'INFO');
         }
-        // Reset so the same file can be re-selected
-        hiddenFileInput.value = '';
     });
 
     // Clear log
@@ -110,16 +99,18 @@
     startBtn.addEventListener('click', function() {
         if (isRunning) return;
 
-        const file = excelFileInput.value.trim();
+        const file = excelFileInput.files[0];
         if (!file) {
-            logMessage('Please specify an Excel file', 'ERROR');
+            logMessage('Please select an Excel file', 'ERROR');
             return;
         }
 
         clearLog();
         logMessage('Starting camera configuration process...', 'INFO');
+
         const username = usernameInput.value.trim() || 'root';
         const password = passwordInput.value.trim() || 'pass';
+
         logMessage(`Will set username: ${username}, password: ${'*'.repeat(password.length)}`, 'INFO');
 
         if (currentThread) {
@@ -129,7 +120,7 @@
 
         setRunningState(true);
         stopRequested = false;
-        runConfiguration(username, password, file);
+        runConfiguration(username, password, file.name);
     });
 
     // Main configuration simulation
@@ -146,88 +137,19 @@
             }
 
             step++;
-            const progress = Math.min(100, Math.round((step / totalSteps) * 100));
+            const progress = Math.round((step / totalSteps) * 100);
             updateStatus(`Processing... ${step}/${totalSteps}`, progress);
 
-            // Simulate steps
-            if (step === 1) {
-                logMessage('Scanning ARP table for cameras...', 'INFO');
-                logMessage('Found 3 devices on network', 'INFO');
-            } else if (step === 2) {
-                logMessage('----------------------------------------', 'INFO');
-                logMessage('Camera Found - MAC: aa:bb:cc:dd:ee:01', 'INFO');
-                logMessage('Current IP: 192.168.0.101', 'INFO');
-                logMessage('New IP: 192.168.1.10', 'INFO');
-                logMessage('Subnet: 255.255.255.0', 'INFO');
-                logMessage('Gateway: 192.168.1.1', 'INFO');
-            } else if (step === 3) {
-                logMessage('========================================', 'INFO');
-                logMessage('STEP 1: Setting credentials on camera...', 'INFO');
-                logMessage('  Trying VAPIX API (Modern)...', 'INFO');
-                logMessage('  VAPIX: User added successfully (no auth required)', 'INFO');
-                logMessage('Credentials successfully set on camera aa:bb:cc:dd:ee:01', 'INFO');
-            } else if (step === 4) {
-                logMessage('STEP 2: Releasing DHCP lease...', 'INFO');
-                logMessage('DHCP lease released successfully', 'INFO');
-            } else if (step === 5) {
-                logMessage('STEP 3: Configuring network settings...', 'INFO');
-                logMessage('  Method 1: Direct parameter setting...', 'INFO');
-                logMessage('SUCCESS: Configuration sent to aa:bb:cc:dd:ee:01', 'INFO');
-            } else if (step === 6) {
-                logMessage('Waiting for network configuration to apply...', 'INFO');
-            } else if (step === 7) {
-                logMessage('Verifying IP change...', 'INFO');
-                logMessage('Camera successfully changed to 192.168.1.10', 'INFO');
-                logMessage('Gateway should be: 192.168.1.1', 'INFO');
-            } else if (step === 8) {
-                logMessage('STEP 4: Configuring image rotation...', 'INFO');
-                logMessage('Setting image rotation to 90 degrees...', 'INFO');
-                logMessage('Image rotated 90 degrees', 'INFO');
-            } else if (step === 9) {
-                logMessage('----------------------------------------', 'INFO');
-                logMessage('Camera Found - MAC: bb:cc:dd:ee:ff:02', 'INFO');
-                logMessage('Current IP: 192.168.0.102', 'INFO');
-                logMessage('New IP: 192.168.1.11', 'INFO');
-                logMessage('Subnet: 255.255.255.0', 'INFO');
-                logMessage('Gateway: 192.168.1.1', 'INFO');
-            } else if (step === 10) {
-                logMessage('STEP 1: Setting credentials on camera...', 'INFO');
-                logMessage('  Trying Legacy CGI...', 'INFO');
-                logMessage('  Legacy: Credentials set with root/pass', 'INFO');
-                logMessage('Credentials verified on bb:cc:dd:ee:ff:02', 'INFO');
-            } else if (step === 11) {
-                logMessage('STEP 2: Releasing DHCP lease...', 'INFO');
-                logMessage('DHCP lease released successfully', 'INFO');
-            } else if (step === 12) {
-                logMessage('STEP 3: Configuring network settings...', 'INFO');
-                logMessage('  Method 2: VAPIX API...', 'INFO');
-                logMessage('SUCCESS: Configuration sent to bb:cc:dd:ee:ff:02', 'INFO');
-                logMessage('Waiting for network configuration to apply...', 'INFO');
-            } else if (step === 13) {
-                logMessage('Verifying IP change...', 'INFO');
-                logMessage('Camera successfully changed to 192.168.1.11', 'INFO');
-                logMessage('STEP 4: Configuring image rotation...', 'INFO');
-                logMessage('Image rotated 90 degrees (alternative method)', 'INFO');
-            } else if (step === 14) {
-                logMessage('========================================', 'INFO');
+            logMessage(`Step ${step} running...`, 'INFO');
+
+            if (step === totalSteps) {
                 logMessage('Finished processing cameras', 'INFO');
-                logMessage(`All cameras configured with username: ${username}`, 'INFO');
-                logMessage('Process finished', 'INFO');
                 setRunningState(false);
-                updateStatus('Configuration complete', 100);
+                updateStatus('Complete', 100);
                 return;
             }
 
-            if (isRunning && !stopRequested && step < totalSteps) {
-                currentThread = setTimeout(nextStep, 600 + Math.random() * 400);
-            } else if (stopRequested) {
-                logMessage('Configuration stopped by user', 'WARNING');
-                setRunningState(false);
-                updateStatus('Stopped', progress);
-            } else {
-                setRunningState(false);
-                updateStatus('Ready', 100);
-            }
+            currentThread = setTimeout(nextStep, 600);
         }
 
         currentThread = setTimeout(nextStep, 300);
@@ -237,4 +159,4 @@
     setRunningState(false);
     logMessage('Ready', 'INFO');
     updateStatus('Ready', 0);
-})();
+});
