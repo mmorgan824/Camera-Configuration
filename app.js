@@ -1,3 +1,4 @@
+
 class CameraConfigApp {
     constructor() {
         // API URL - adjust if backend is on different port
@@ -5,7 +6,7 @@ class CameraConfigApp {
             ? '/api' 
             : 'http://localhost:3001/api';
 
-        // DOM references - use querySelector for better reliability
+        // DOM references - using querySelector for better reliability
         this.usernameInput = document.querySelector('#username-input');
         this.passwordInput = document.querySelector('#password-input');
         this.fileInput = document.querySelector('#file-input');
@@ -101,7 +102,10 @@ class CameraConfigApp {
         if (this.fileInput) {
             // Remove any existing listeners to prevent duplicates
             this.fileInput.removeEventListener('change', this.handleFileSelect);
-            this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
+            this.fileInput.addEventListener('change', (e) => {
+                console.log('File input change event triggered', e);
+                this.handleFileSelect(e);
+            });
             
             // Debug: Log when file input is clicked
             this.fileInput.addEventListener('click', () => {
@@ -157,10 +161,18 @@ class CameraConfigApp {
             this.usernameInput.addEventListener('change', () => {
                 this.USERNAME = this.usernameInput.value || 'root';
             });
+            // Also update on input for real-time changes
+            this.usernameInput.addEventListener('input', () => {
+                this.USERNAME = this.usernameInput.value || 'root';
+            });
         }
 
         if (this.passwordInput) {
             this.passwordInput.addEventListener('change', () => {
+                this.PASSWORD = this.passwordInput.value || 'pass';
+            });
+            // Also update on input for real-time changes
+            this.passwordInput.addEventListener('input', () => {
                 this.PASSWORD = this.passwordInput.value || 'pass';
             });
         }
@@ -210,7 +222,9 @@ class CameraConfigApp {
             if (this.fileStatus) {
                 this.fileStatus.textContent = `❌ Invalid file type: ${ext}`;
             }
-            this.fileInput.value = ''; // Clear the input
+            if (this.fileInput) {
+                this.fileInput.value = ''; // Clear the input
+            }
             return;
         }
 
