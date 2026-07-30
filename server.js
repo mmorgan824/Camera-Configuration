@@ -4,8 +4,7 @@ const cors = require('cors');
 const multer = require('multer');
 const XLSX = require('xlsx');
 const axios = require('axios');
-const { promisify } = require('util');
-const exec = promisify(require('child_process').exec);
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 3001;
 
@@ -14,10 +13,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from current directory (for testing)
+app.use(express.static(__dirname));
+
 // Configure multer for file uploads
 const storage = multer.memoryStorage();
 const upload = multer({ 
     storage: storage,
+    limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const ext = file.originalname.split('.').pop().toLowerCase();
         if (['xlsx', 'xls'].includes(ext)) {
@@ -34,7 +37,12 @@ const upload = multer({
 
 // Health check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        message: 'Backend API is running'
+    });
 });
 
 // Upload and parse Excel file
@@ -44,6 +52,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             return res.status(400).json({ error: 'No file uploaded' });
         }
 
+        console.log('Processing file:', req.file.originalname);
+        console.log('File size:', req.file.size, 'bytes');
+
         const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(firstSheet, { defval: '' });
@@ -52,8 +63,9 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             return res.status(400).json({ error: 'No data found in Excel file' });
         }
 
-        // Parse cameras
         const cameras = parseCameras(jsonData);
+        console.log(`Parsed ${cameras.length} cameras from Excel`);
+
         res.json({ 
             success: true, 
             count: cameras.length,
@@ -70,9 +82,11 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 app.post('/api/test-connection', async (req, res) => {
     try {
         const { ip, username, password } = req.body;
+        console.log(`Testing connection to ${ip}`);
         const result = await testCameraConnection(ip, username, password);
         res.json(result);
     } catch (error) {
+        console.error('Test connection error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -90,6 +104,11 @@ app.post('/api/configure-camera', async (req, res) => {
             setCredentials,
             rotateImage 
         } = req.body;
+
+        console.log(`Configuring camera at ${ip}`);
+        console.log(`  New IP: ${newIp}`);
+        console.log(`  Subnet: ${subnet}`);
+        console.log(`  Gateway: ${gateway}`);
 
         const results = {
             credentials: false,
@@ -110,10 +129,12 @@ app.post('/api/configure-camera', async (req, res) => {
                     error: 'Failed to set credentials'
                 });
             }
+            console.log('  ✅ Credentials set');
         }
 
         // STEP 2: Release DHCP lease
         results.dhcpRelease = await releaseDHCP(ip, username, password);
+        console.log(`  DHCP Release: ${results.dhcpRelease ? '✅' : '❌'}`);
 
         // STEP 3: Configure network settings
         results.network = await configureNetwork(ip, username, password, newIp, subnet, gateway);
@@ -125,37 +146,30 @@ app.post('/api/configure-camera', async (req, res) => {
                 error: 'Failed to configure network'
             });
         }
+        console.log('  ✅ Network configured');
 
         // STEP 4: Wait for camera to reboot/apply settings
+        console.log('  Waiting for camera to apply settings...');
         await sleep(5000);
 
         // STEP 5: Verify connection on new IP
         results.verification = await testCameraConnection(newIp, username, password);
+        console.log(`  Verification: ${results.verification.success ? '✅' : '❌'}`);
 
         // STEP 6: Configure image rotation (if requested)
-        if (rotateImage && results.verification) {
+        if (rotateImage && results.verification.success) {
             results.rotation = await setImageRotation(newIp, username, password, 90);
+            console.log(`  Rotation: ${results.rotation ? '✅' : '❌'}`);
         }
 
         res.json({
-            success: results.verification,
+            success: results.verification.success,
             results,
-            message: results.verification ? 'Camera configured successfully' : 'Camera configuration may have failed'
+            message: results.verification.success ? 'Camera configured successfully' : 'Camera configuration may have failed'
         });
 
     } catch (error) {
         console.error('Configuration error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Get ARP table (for finding cameras)
-app.get('/api/arp-table', async (req, res) => {
-    try {
-        const { stdout, stderr } = await exec('arp -a');
-        const devices = parseARPTable(stdout);
-        res.json({ success: true, devices });
-    } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -206,20 +220,6 @@ function formatMac(mac) {
     return parts.join(':');
 }
 
-function parseARPTable(output) {
-    const devices = [];
-    const lines = output.split('\n');
-    for (const line of lines) {
-        const match = line.match(/(\d+\.\d+\.\d+\.\d+)\s+([a-f0-9\-]+)/i);
-        if (match) {
-            const ip = match[1];
-            const mac = formatMac(match[2]);
-            devices.push({ ip, mac });
-        }
-    }
-    return devices;
-}
-
 async function testCameraConnection(ip, username, password) {
     try {
         const url = `http://${ip}/axis-cgi/param.cgi?action=list&group=System`;
@@ -235,10 +235,8 @@ async function testCameraConnection(ip, username, password) {
 
 async function setCameraCredentials(ip, newUsername, newPassword) {
     try {
-        // Try multiple methods
         const methods = [
             async () => {
-                // Method 1: VAPIX API
                 const url = `http://${ip}/axis-cgi/privilege.cgi`;
                 const payload = {
                     action: 'addUser',
@@ -255,7 +253,6 @@ async function setCameraCredentials(ip, newUsername, newPassword) {
                 return response.status === 200;
             },
             async () => {
-                // Method 2: Legacy CGI
                 const url = `http://${ip}/axis-cgi/pwdgrp.cgi`;
                 const payload = {
                     action: 'add',
@@ -271,7 +268,6 @@ async function setCameraCredentials(ip, newUsername, newPassword) {
                 return response.status === 200;
             },
             async () => {
-                // Method 3: Param CGI
                 const url = `http://${ip}/axis-cgi/param.cgi`;
                 const payload = {
                     action: 'update',
@@ -321,7 +317,6 @@ async function releaseDHCP(ip, username, password) {
 
 async function configureNetwork(ip, username, password, newIp, subnet, gateway) {
     try {
-        // Try multiple gateway parameter formats
         const gatewayParams = [
             'Network.DefaultGateway',
             'Network.Route.DefaultGateway',
@@ -437,11 +432,18 @@ function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ============================================================
-// START SERVER
-// ============================================================
-
+// Start server
 app.listen(port, () => {
-    console.log(`Axis Camera API running on port ${port}`);
-    console.log(`http://localhost:${port}`);
+    console.log('='.repeat(50));
+    console.log(' Axis Camera API Server');
+    console.log('='.repeat(50));
+    console.log(` Server running on: http://localhost:${port}`);
+    console.log(` Serving static files from: ${__dirname}`);
+    console.log(` API endpoint: http://localhost:${port}/api/health`);
+    console.log('='.repeat(50));
+    console.log(' Press Ctrl+C to stop the server');
+    console.log('='.repeat(50));
 });
+        
+
+    
