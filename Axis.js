@@ -211,7 +211,7 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             if (currentIndex >= totalCameras) {
-                logMessage('🎉 All cameras configured successfully!', 'INFO');
+                logMessage(' All cameras configured successfully!', 'INFO');
                 setRunningState(false);
                 updateStatus('Complete', 100);
                 return;
@@ -221,7 +221,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const progress = Math.round(((currentIndex + 1) / totalCameras) * 100);
 
             // Log detailed information about the current camera
-            logMessage(`📷 Processing Camera ${currentIndex + 1}/${totalCameras}`, 'INFO');
+            logMessage(`   Processing Camera ${currentIndex + 1}/${totalCameras}`, 'INFO');
             logMessage(`   MAC Address: ${camera.mac}`, 'INFO');
             logMessage(`   Setting IP: ${camera.ip}`, 'INFO');
             logMessage(`   Setting Subnet: ${camera.subnet}`, 'INFO');
